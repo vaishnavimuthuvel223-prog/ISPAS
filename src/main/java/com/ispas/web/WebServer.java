@@ -62,6 +62,13 @@ public class WebServer {
             return gson.toJson(Map.of("ok", true));
         });
 
+        // Return usage records for a customer
+        Spark.get("/api/usage/:id", (req, res) -> {
+            int cid = Integer.parseInt(req.params(":" + "id"));
+            res.type("application/json");
+            return gson.toJson(svc.getUsageForCustomer(cid));
+        });
+
         Spark.post("/api/tickets", (req, res) -> {
             Map<?,?> m = gson.fromJson(req.body(), Map.class);
             int cid = ((Number) m.get("customerId")).intValue();
@@ -95,6 +102,22 @@ public class WebServer {
             
             res.type("application/json");
             return gson.toJson(Map.of("status", "Payment processed", "amount", amount, "customerId", cid, "message", "Receipt sent to email"));
+        });
+
+        // Test email endpoint - POST { "email": "you@domain.com", "name": "Optional Name" }
+        Spark.post("/api/email/test", (req, res) -> {
+            Map<?,?> m = gson.fromJson(req.body(), Map.class);
+            String email = (String) m.get("email");
+            Object nameObj = m.get("name");
+            String name = nameObj != null ? nameObj.toString() : "User";
+            if (email == null || email.isBlank()) {
+                res.status(400);
+                return gson.toJson(Map.of("error", "email required"));
+            }
+            // Send a simple test email (async)
+            new Thread(() -> com.ispas.service.EmailService.sendRegistrationEmail(email, name, -1)).start();
+            res.type("application/json");
+            return gson.toJson(Map.of("status", "ok", "message", "Test email queued (demo mode if no password)"));
         });
 
         Spark.awaitInitialization();
