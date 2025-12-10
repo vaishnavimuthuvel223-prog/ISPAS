@@ -2,7 +2,9 @@ package com.ispas.service;
 
 import javax.mail.*;
 import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
 import java.util.Properties;
 
 public class EmailService {
@@ -36,14 +38,14 @@ public class EmailService {
                 return;
             }
 
-            sendEmail(recipientEmail, subject, body, appPassword);
+            sendEmail(recipientEmail, subject, body, appPassword, null);
         } catch (MessagingException e) {
             System.err.println("Failed to send email: " + e.getMessage());
             // Don't throw - email failure shouldn't block registration
         }
     }
 
-    public static void sendBillEmail(String recipientEmail, String customerName, double billAmount, int customerId) {
+    public static void sendBillEmail(String recipientEmail, String customerName, double billAmount, int customerId, byte[] billPdfBytes) {
         try {
             String appPassword = getAppPassword();
             String subject = "Your ISP Bill - $" + String.format("%.2f", billAmount);
@@ -52,6 +54,7 @@ public class EmailService {
                     "Customer ID: " + customerId + "\n" +
                     "Total Amount Due: $" + String.format("%.2f", billAmount) + "\n" +
                     "Date: " + new java.util.Date() + "\n\n" +
+                    "Your detailed bill invoice is attached as a PDF.\n\n" +
                     "Please log in to make a payment: http://localhost:4567\n\n" +
                     "Thank you for choosing our service!\n\n" +
                     "Best regards,\n" +
@@ -59,16 +62,19 @@ public class EmailService {
 
             if (appPassword == null) {
                 System.out.println("[DEMO] Would send bill email to: " + recipientEmail + " with subject: " + subject);
+                if (billPdfBytes != null) {
+                    System.out.println("[DEMO] Bill PDF attachment (" + billPdfBytes.length + " bytes) would be included");
+                }
                 return;
             }
 
-            sendEmail(recipientEmail, subject, body, appPassword);
+            sendEmail(recipientEmail, subject, body, appPassword, billPdfBytes);
         } catch (MessagingException e) {
             System.err.println("Failed to send bill email: " + e.getMessage());
         }
     }
 
-    private static void sendEmail(String recipientEmail, String subject, String body, String appPassword) throws MessagingException {
+    private static void sendEmail(String recipientEmail, String subject, String body, String appPassword, byte[] pdfAttachmentBytes) throws MessagingException {
         Properties props = new Properties();
         props.put("mail.smtp.host", "smtp.gmail.com");
         props.put("mail.smtp.port", "587");
@@ -89,9 +95,29 @@ public class EmailService {
         message.setFrom(new InternetAddress(SENDER_EMAIL));
         message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(recipientEmail));
         message.setSubject(subject);
-        message.setText(body);
+
+        // Create multipart message for text + attachment
+        if (pdfAttachmentBytes != null) {
+            MimeMultipart multipart = new MimeMultipart();
+
+            // Text part
+            MimeBodyPart textPart = new MimeBodyPart();
+            textPart.setText(body);
+            multipart.addBodyPart(textPart);
+
+            // PDF attachment
+            MimeBodyPart pdfPart = new MimeBodyPart();
+            pdfPart.setContent(pdfAttachmentBytes, "application/pdf");
+            pdfPart.setFileName("Bill_Invoice.pdf");
+            multipart.addBodyPart(pdfPart);
+
+            message.setContent(multipart);
+        } else {
+            message.setText(body);
+        }
 
         Transport.send(message);
-        System.out.println("Email sent successfully to: " + recipientEmail + " (subject: " + subject + ")");
+        String attachmentNote = pdfAttachmentBytes != null ? " (with PDF attachment)" : "";
+        System.out.println("Email sent successfully to: " + recipientEmail + " (subject: " + subject + ")" + attachmentNote);
     }
 }

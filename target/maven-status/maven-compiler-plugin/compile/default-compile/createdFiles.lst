@@ -5,6 +5,7 @@ com/ispas/dao/PlanDao.class
 com/ispas/dao/CustomerDao.class
 com/ispas/model/Customer.class
 com/ispas/service/StripePaymentService.class
+com/ispas/service/BillPdfService.class
 com/ispas/dao/TicketDao.class
 com/ispas/db/Database.class
 com/ispas/service/EmailService$1.class

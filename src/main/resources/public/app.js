@@ -138,7 +138,8 @@ async function generateBill() {
     const r = await fetch(`/api/bill/${customerId}`);
     const data = await r.json();
     currentBill = data.bill;
-    showMessage('billMsg', `Amount Due: $${data.bill.toFixed(2)}`, 'info');
+    const pdfLink = `<a href="/api/bill/pdf/${customerId}" target="_blank" style="color: #667eea; text-decoration: underline;">Download PDF</a>`;
+    showMessage('billMsg', `Amount Due: $${data.bill.toFixed(2)} | ${pdfLink}`, 'info');
     document.getElementById('payBtn').style.display = 'block';
   } catch (e) {
     showMessage('billMsg', 'Error: ' + e.message, 'error');
@@ -169,8 +170,14 @@ async function processPayment() {
         showMessage('billMsg', 'Error: ' + e.message, 'error');
       });
     } else {
-      // Demo mode - simulate payment
-      showMessage('billMsg', `Demo Payment Processed!\nAmount: $${currentBill.toFixed(2)}\n(Set STRIPE_SECRET_KEY to use real Stripe)`, 'success');
+      // Demo mode - process payment and send email with PDF
+      const paymentR = await fetch('/api/payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ customerId: parseInt(customerId), amount: currentBill })
+      });
+      const paymentData = await paymentR.json();
+      showMessage('billMsg', `Payment Processed!\nAmount: $${currentBill.toFixed(2)}\n${paymentData.message}\n(Check your email for PDF invoice)`, 'success');
       document.getElementById('payBtn').style.display = 'none';
       document.getElementById('billCustId').value = '';
       currentBill = 0;

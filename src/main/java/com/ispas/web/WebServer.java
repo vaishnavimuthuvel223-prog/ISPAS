@@ -88,7 +88,7 @@ public class WebServer {
             return gson.toJson(Map.of("bill", bill));
         });
 
-        // Payment endpoint
+        // Payment endpoint - includes PDF bill generation
         Spark.post("/api/payment", (req, res) -> {
             Map<?,?> m = gson.fromJson(req.body(), Map.class);
             int cid = ((Number) m.get("customerId")).intValue();
@@ -100,11 +100,14 @@ public class WebServer {
                 return gson.toJson(Map.of("error", "Customer not found"));
             }
             
-            // Send bill email
-            new Thread(() -> com.ispas.service.EmailService.sendBillEmail(customer.getEmail(), customer.getName(), amount, cid)).start();
+            // Generate PDF bill and send via email (async)
+            new Thread(() -> {
+                byte[] pdfBytes = com.ispas.service.BillPdfService.generateBillPdf(cid, amount);
+                com.ispas.service.EmailService.sendBillEmail(customer.getEmail(), customer.getName(), amount, cid, pdfBytes);
+            }).start();
             
             res.type("application/json");
-            return gson.toJson(Map.of("status", "Payment processed", "amount", amount, "customerId", cid, "message", "Receipt sent to email"));
+            return gson.toJson(Map.of("status", "Payment processed", "amount", amount, "customerId", cid, "message", "Receipt with PDF sent to email"));
         });
 
         // Test email endpoint - POST { "email": "you@domain.com", "name": "Optional Name" }
@@ -140,6 +143,27 @@ public class WebServer {
             String sessionId = com.ispas.service.StripePaymentService.createCheckoutSession(cid, amountCents, customer.getEmail());
             res.type("application/json");
             return gson.toJson(Map.of("sessionId", sessionId, "amount", bill));
+        });
+
+        // Download PDF bill - GET /api/bill/pdf/:id
+        Spark.get("/api/bill/pdf/:id", (req, res) -> {
+            int cid = Integer.parseInt(req.params(":id"));
+            double bill = svc.generateBillForCustomer(cid);
+            byte[] pdfBytes = com.ispas.service.BillPdfService.generateBillPdf(cid, bill);
+            
+            if (pdfBytes == null) {
+                res.status(500);
+                return "Failed to generate PDF";
+            }
+            
+            res.type("application/octet-stream");
+            res.header("Content-Disposition", "attachment; filename=bill_customer_" + cid + ".pdf");
+            res.header("Content-Length", String.valueOf(pdfBytes.length));
+            
+            // Set raw bytes directly in response
+            res.raw().getOutputStream().write(pdfBytes);
+            res.raw().getOutputStream().flush();
+            return "";
         });
 
         Spark.awaitInitialization();
