@@ -10,7 +10,9 @@ import java.util.List;
 public class TicketDao {
     public Ticket create(Ticket t) throws SQLException {
         String sql = "INSERT INTO tickets(customer_id, title, description, status, created_at) VALUES(?,?,?,?,?)";
-        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+        Connection c = Database.getConnection();
+        PreparedStatement ps = c.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS);
+        try {
             ps.setInt(1, t.getCustomerId());
             ps.setString(2, t.getTitle());
             ps.setString(3, t.getDescription());
@@ -18,6 +20,8 @@ public class TicketDao {
             ps.setString(5, t.getCreatedAt());
             ps.executeUpdate();
             try (ResultSet rs = ps.getGeneratedKeys()) { if (rs.next()) t.setId(rs.getInt(1)); }
+        } finally {
+            ps.close();
         }
         return t;
     }
@@ -25,9 +29,12 @@ public class TicketDao {
     public List<Ticket> listByCustomer(int customerId) throws SQLException {
         String sql = "SELECT id, customer_id, title, description, status, created_at FROM tickets WHERE customer_id = ?";
         List<Ticket> out = new ArrayList<>();
-        try (Connection c = Database.getConnection(); PreparedStatement ps = c.prepareStatement(sql)) {
+        Connection c = Database.getConnection();
+        PreparedStatement ps = c.prepareStatement(sql);
+        try {
             ps.setInt(1, customerId);
-            try (ResultSet rs = ps.executeQuery()) {
+            ResultSet rs = ps.executeQuery();
+            try {
                 while (rs.next()) {
                     Ticket t = new Ticket();
                     t.setId(rs.getInt("id"));
@@ -38,7 +45,11 @@ public class TicketDao {
                     t.setCreatedAt(rs.getString("created_at"));
                     out.add(t);
                 }
+            } finally {
+                rs.close();
             }
+        } finally {
+            ps.close();
         }
         return out;
     }

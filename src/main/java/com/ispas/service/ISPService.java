@@ -23,7 +23,10 @@ public class ISPService {
 
     public Customer registerCustomer(String name, String email, String phone) throws SQLException {
         Customer c = new Customer(name, email, phone);
-        return customerDao.create(c);
+        Customer created = customerDao.create(c);
+        // Send welcome email asynchronously
+        new Thread(() -> EmailService.sendRegistrationEmail(email, name, created.getId())).start();
+        return created;
     }
 
     public List<Customer> listCustomers() throws SQLException { return customerDao.listAll(); }
