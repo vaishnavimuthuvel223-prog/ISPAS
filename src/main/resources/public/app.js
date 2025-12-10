@@ -154,16 +154,27 @@ async function processPayment() {
   }
 
   try {
-    const r = await fetch('/api/payment', {
+    // Call Stripe Checkout API
+    const r = await fetch('/api/checkout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ customerId: parseInt(customerId), amount: currentBill })
+      body: JSON.stringify({ customerId: parseInt(customerId) })
     });
     const data = await r.json();
-    showMessage('billMsg', `Payment Success! Receipt sent to email.\nAmount: $${currentBill.toFixed(2)}`, 'success');
-    document.getElementById('payBtn').style.display = 'none';
-    document.getElementById('billCustId').value = '';
-    currentBill = 0;
+    
+    if (data.sessionId && !data.sessionId.startsWith('demo-')) {
+      // Real Stripe session - redirect to Stripe Checkout
+      const stripe = Stripe('pk_test_51234567890123456789012345');  // Placeholder - will be handled by server
+      stripe.redirectToCheckout({ sessionId: data.sessionId }).catch(e => {
+        showMessage('billMsg', 'Error: ' + e.message, 'error');
+      });
+    } else {
+      // Demo mode - simulate payment
+      showMessage('billMsg', `Demo Payment Processed!\nAmount: $${currentBill.toFixed(2)}\n(Set STRIPE_SECRET_KEY to use real Stripe)`, 'success');
+      document.getElementById('payBtn').style.display = 'none';
+      document.getElementById('billCustId').value = '';
+      currentBill = 0;
+    }
   } catch (e) {
     showMessage('billMsg', 'Payment error: ' + e.message, 'error');
   }

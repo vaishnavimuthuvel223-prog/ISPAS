@@ -10,6 +10,9 @@ import java.util.Map;
 
 public class WebServer {
     public static void main(String[] args) throws SQLException {
+        // Initialize Stripe payment service
+        com.ispas.service.StripePaymentService.init();
+
         ISPService svc = new ISPService();
         // seed plans if empty
         if (svc.listPlans().isEmpty()) {
@@ -118,6 +121,25 @@ public class WebServer {
             new Thread(() -> com.ispas.service.EmailService.sendRegistrationEmail(email, name, -1)).start();
             res.type("application/json");
             return gson.toJson(Map.of("status", "ok", "message", "Test email queued (demo mode if no password)"));
+        });
+
+        // Stripe checkout endpoint - POST { "customerId": 1 }
+        Spark.post("/api/checkout", (req, res) -> {
+            Map<?,?> m = gson.fromJson(req.body(), Map.class);
+            int cid = ((Number) m.get("customerId")).intValue();
+            
+            var customer = svc.listCustomers().stream().filter(c -> c.getId() == cid).findFirst().orElse(null);
+            if (customer == null) {
+                res.status(404);
+                return gson.toJson(Map.of("error", "Customer not found"));
+            }
+            
+            double bill = svc.generateBillForCustomer(cid);
+            long amountCents = (long) (bill * 100);
+            
+            String sessionId = com.ispas.service.StripePaymentService.createCheckoutSession(cid, amountCents, customer.getEmail());
+            res.type("application/json");
+            return gson.toJson(Map.of("sessionId", sessionId, "amount", bill));
         });
 
         Spark.awaitInitialization();

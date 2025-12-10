@@ -7,6 +7,7 @@
 /workspaces/ISPAS/src/main/java/com/ispas/service/EmailService.java
 /workspaces/ISPAS/src/main/java/com/ispas/dao/PlanDao.java
 /workspaces/ISPAS/src/main/java/com/ispas/dao/TicketDao.java
+/workspaces/ISPAS/src/main/java/com/ispas/service/StripePaymentService.java
 /workspaces/ISPAS/src/main/java/com/ispas/model/Customer.java
 /workspaces/ISPAS/src/main/java/com/ispas/dao/UsageDao.java
 /workspaces/ISPAS/src/main/java/com/ispas/db/Database.java
